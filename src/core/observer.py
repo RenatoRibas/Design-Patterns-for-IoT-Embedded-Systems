@@ -1,5 +1,6 @@
 # src/observer.py
 
+
 class Observer:
     def update(self, device):
         pass
@@ -16,6 +17,8 @@ class GenericSubscriber(Observer):
             print(message)
             self.notifications.append(message)
         else:
-            message = f"Observer {self.name}: TAG = {device.tag} recebeu um valor inválido."
+            message = (
+                f"Observer {self.name}: TAG = {device.tag} recebeu um valor inválido."
+            )
             print(message)
             self.notifications.append(message)

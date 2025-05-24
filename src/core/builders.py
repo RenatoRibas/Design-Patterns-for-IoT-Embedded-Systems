@@ -5,6 +5,7 @@ from src.devices import AIDevicePublisher
 
 ##################### classe AIDeviceBuilder ###################################################################################
 
+
 class AIDeviceBuilder:
     def __init__(self):
         self._tag = None
@@ -39,4 +40,11 @@ class AIDeviceBuilder:
         return self
 
     def build(self):
-        return AIDevicePublisher(self._tag, self._area, self._descricao, self._range_min, self._range_max, self._unit)
+        return AIDevicePublisher(
+            self._tag,
+            self._area,
+            self._descricao,
+            self._range_min,
+            self._range_max,
+            self._unit,
+        )
