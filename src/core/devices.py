@@ -1,11 +1,19 @@
-# src/devices.py
+"""
+Módulo que define os dispositivos da aplicação:
+- Device (superclasse base)
+- AIDevicePublisher (analógico, com padrão Observer)
+- DODevice (digital, simples)
+"""
 
-
-##################### Superclasse Device ###################################################################################
+from typing import List
 
 
 class Device:
-    def __init__(self, tag, area, descricao, tipo):
+    """
+    Superclasse para dispositivos genéricos com atributos comuns.
+    """
+
+    def __init__(self, tag: str, area: str, descricao: str, tipo: str):
         self.tag = tag
         self.area = area
         self.descricao = descricao
@@ -15,32 +23,56 @@ class Device:
         return f"Device(tag={self.tag}, area={self.area}, descricao={self.descricao}, tipo={self.tipo})"
 
 
-##################### Subclasse AI Device ###################################################################################
-
-
 class AIDevicePublisher(Device):
-    def __init__(self, tag, area, descricao, range_min, range_max, unit):
+    """
+    Dispositivo AI (entrada analógica) com suporte ao padrão Observer.
+
+    Observadores podem se inscrever para receber atualizações sempre
+    que o valor do sensor for modificado via update_value().
+    """
+
+    def __init__(
+        self,
+        tag: str,
+        area: str,
+        descricao: str,
+        range_min: float,
+        range_max: float,
+        unit: str,
+    ):
         super().__init__(tag, area, descricao, "AI")
         self.range_min = range_min
         self.range_max = range_max
         self.unit = unit
-        self.value = None  # Valor atual
-        self.subscribers = []  # Lista de observadores #subscriber
+        self.value = None
+        self.subscribers: List = []
 
-    def attach(self, subscriber):
-        self.subscribers.append(subscriber)  # Adiciona observador
+    def subscribe(self, subscriber):
+        """
+        Adiciona um observador à lista de inscritos.
+        """
+        self.subscribers.append(subscriber)
 
-    def detach(self, subscriber):
-        self.subscribers.remove(subscriber)  # Remove observador
+    def unsubscribe(self, subscriber):
+        """
+        Remove um observador da lista de inscritos.
+        """
+        self.subscribers.remove(subscriber)
 
     def notify(self):
+        """
+        Notifica todos os observadores inscritos.
+        """
         for subscriber in self.subscribers:
-            subscriber.update(self)  # Notifica observadores
+            subscriber.update(self)
 
-    def update_value(self, new_value):
-        self.value = new_value  # Atualiza valor
+    def update_value(self, new_value: float):
+        """
+        Atualiza o valor do dispositivo e aciona os observadores.
+        """
+        self.value = new_value
         print(f"Atualizando {self.tag} com valor {self.value} {self.unit}")
-        self.notify()  # Notifica os inscritos
+        self.notify()
 
     def __repr__(self):
         return (
@@ -49,11 +81,12 @@ class AIDevicePublisher(Device):
         )
 
 
-##################### Subclasse DO Device ###################################################################################
-
-
 class DODevice(Device):
-    def __init__(self, tag, area, descricao):
+    """
+    Dispositivo DO (saída digital).
+    """
+
+    def __init__(self, tag: str, area: str, descricao: str):
         super().__init__(tag, area, descricao, "DO")
 
     def __repr__(self):

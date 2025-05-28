@@ -1,89 +1,115 @@
-# **************************************************/
-
+# **************************************************
 # Project: Design-Patterns-for-IoT-Embedded-Systems
-# Data: 01/11/2024
-# Version: 1.0
-# Description: This code implements the platform based on Design Patterns, where the devices (Raspberry Pi and Esp8266) are integrated for read the
-# temperature and disponilized in the platform to method observers and create objects with the Factory Method and Builder Pattern.
-# The create objects are based on read the I/O list in excel file.
+# Data: 27/05/2025
+# Version: 2.0
+# Description:
+#     Plataforma baseada em Design Patterns para integração de dispositivos IoT.
+#     Leitura de dados a partir de uma planilha Excel com a lista de IOs.
+#     Dispositivos instanciados via Factory Method e Builder.
+#     Suporte à leitura real ou simulação com padrão Observer.
 # License: MIT
+# **************************************************
 
-# **************************************************/
-
-##################### INICIO DE PROGRAMA ###################################################################################
-
+import logging
 import os
-import serial
-import time
-from threading import Thread
+import sys
+from threading import Event, Thread
 
-from .read_excel import ler_dados_excel
-from .observer import GenericSubscriber
-from .devices import AIDevicePublisher
-from .factories import DODeviceFactory
-from .builders import AIDeviceBuilder
+from services.io_read import read_lista_de_io
+from src.services.device_creator import criar_dispositivo
+from src.services.sensor_reader import ler_sensor
+from src.services.sensor_simulator import loop_simulacao_sensor
 
-base_path = os.path.dirname(os.path.abspath(__file__))
+# Adiciona o caminho ao src no PYTHONPATH para facilitar os imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-##################### INICIALIZA PORTA SERIAL E COMUNICAÇÃO COM NODEMCU ####################################################
+# Configuração de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-ser = serial.Serial("COM5", 115200)
-time.sleep(2)
-
-
-##################### LEITURA DO SENSOR DE TEMPERATURA A1-AI-TIT01 VIA PORTA SERIAL ##########################################
-
-import time
+# Define o modo de operação: True para sensor real, False para simulado
+MODO_SENSOR = False
 
 
-def ler_sensor(
-    dispositivos_criados, stop_event
-):  # stop_event é um evento que será usado para parar a thread
-    while not stop_event.is_set():
-        if ser.in_waiting > 0:
-            line = (
-                ser.readline().decode("utf-8").strip()
-            )  # Use strip() para remover espaços em branco e quebras de linha extras
-            print(f"Leitura do sensor: {line}")
+def main():
+    """
+    Função principal do sistema:
+    - Lê a planilha Excel contendo a lista de IOs.
+    - Valida e instancia os dispositivos via Builder e Factory.
+    - Inicia a simulação ou leitura real de sensores com Observer.
+    """
+    # Caminho da planilha
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_path, "..", "app", "data", "Ambiente_Controlado.xlsx")
 
-            # Verifica se a linha contém apenas caracteres numéricos e ponto decimal e tem um formato válido
-            if line.replace(".", "", 1).isdigit() and line.count(".") <= 1:
-                try:
-                    temperatura = float(line)
-                    # Verifica se a temperatura está em um intervalo esperado para evitar leituras absurdas
-                    if 15.0 <= temperatura <= 50.0:  # Faixa de temperatura aceitável
-                        for dispositivo in dispositivos_criados:
-                            if (
-                                isinstance(dispositivo, AIDevicePublisher)
-                                and dispositivo.tag == "A1-AI-TIT01"
-                            ):
-                                dispositivo.update_value(temperatura)
-                    else:
-                        print(f"Leitura fora da faixa esperada: {temperatura} °C")
-                except ValueError:
-                    print(f"Erro ao processar a linha: {line}")
+    # Leitura da lista de IOs
+    try:
+        dispositivos = read_lista_de_io(file_path)
+        logger.info(f"{len(dispositivos)} dispositivos lidos com sucesso.")
+    except FileNotFoundError:
+        logger.error("Arquivo de planilha não encontrado.")
+        return
+    except ValueError as e:
+        logger.error(f"Erro na estrutura da planilha: {e}")
+        return
+    except Exception as e:
+        logger.error(f"Erro inesperado: {e}")
+        return
+
+    # Criação dos objetos com base na planilha
+    objetos_instanciados = []
+
+    for dispositivo in dispositivos:
+        try:
+            tipo = dispositivo.tipo
+            if tipo == "AI":
+                args = [
+                    dispositivo.tag,
+                    dispositivo.area,
+                    dispositivo.descricao,
+                    dispositivo.range_min,
+                    dispositivo.range_max,
+                    dispositivo.unit,
+                ]
+            elif tipo == "DO":
+                args = [
+                    dispositivo.tag,
+                    dispositivo.area,
+                    dispositivo.descricao,
+                ]
             else:
-                print(f"Formato inválido de leitura: {line}")
+                raise ValueError(f"Tipo desconhecido: {tipo}")
 
-        time.sleep(1.0)
+            obj = criar_dispositivo(tipo, *args)
+            objetos_instanciados.append(obj)
+
+        except Exception as e:
+            logger.error(f"Erro ao criar dispositivo '{dispositivo}': {e}")
+
+    logger.info(f"{len(objetos_instanciados)} dispositivos instanciados com sucesso.")
+
+    # Inicializa o modo de leitura (real ou simulado)
+    if MODO_SENSOR:
+        stop_event = Event()
+        thread = Thread(
+            target=ler_sensor,
+            args=(objetos_instanciados, stop_event),
+            daemon=True,
+        )
+        thread.start()
+        logger.info("Leitura via sensor real iniciada.")
+
+        try:
+            while True:
+                pass
+        except KeyboardInterrupt:
+            logger.info("Encerrando leitura...")
+            stop_event.set()
+            thread.join()
+    else:
+        logger.info("Iniciando leitura simulada.")
+        loop_simulacao_sensor(objetos_instanciados)
 
 
-##################### LEITURA DO ARQUIVO DE DADOS E CRIAÇÃO DOS DISPOSITIVOS ##################################################
-
-
-def processar_e_criar_dispositivos():
-    file_path = os.path.join(base_path, "..", "data", "Ambiente_Controlado.xlsx")
-
-    # Verifica se o arquivo existe
-    if not os.path.exists(file_path):
-        print(f"Erro: Arquivo de dados não encontrado {file_path}")
-        return []
-
-    # Lê os dados do Excel
-    devices_data = ler_dados_excel(file_path)
-
-    # Cria dispositivos com base nos dados
-    dispositivos_criados = [
-        criar_dispositivo(*device_info) for device_info in devices_data
-    ]
-    return dispositivos_criados
+if __name__ == "__main__":
+    main()

@@ -2,5 +2,5 @@ projectKey=Design-Patterns-for-IoT-Embedded-Systems
 serverUrl=http://localhost:9000
 serverVersion=25.5.0.107428
 dashboardUrl=http://localhost:9000/dashboard?id=Design-Patterns-for-IoT-Embedded-Systems
-ceTaskId=14d522df-7b57-4276-a901-cfe01230cceb
-ceTaskUrl=http://localhost:9000/api/ce/task?id=14d522df-7b57-4276-a901-cfe01230cceb
+ceTaskId=ed9066d5-4975-4cde-8745-be5af84dace9
+ceTaskUrl=http://localhost:9000/api/ce/task?id=ed9066d5-4975-4cde-8745-be5af84dace9
